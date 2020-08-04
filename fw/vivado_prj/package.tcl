@@ -1,16 +1,4 @@
-# Define Xilinx part and board
-set ver "2019.1"
-#set xl_board ""
-set project_part ""
-set project_board "not-applicable"
-set project_name ""
-set outputDir ./vivadoRuntimeData/
-
-#Vivado Creatiuon Opts
-set defaultLibName "sneslib"
-set proj_make 0
-set doBitStream 0
-
+source ./project_defines.tcl
 
 
 #+++++++++++++++++++++++++++++++++++++++++++++++
