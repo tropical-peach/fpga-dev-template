@@ -145,72 +145,95 @@ update_compile_order -fileset sim_1
 #sources
 update_compile_order -fileset sources_1
 
-# STEP#1: run synthesis, report utilization and timing estimates, write checkpoint design
-# Create the runs with default of run time optimized design flows. If this fails, come back
-# and update this script with different flow options.
-#   USER GUIDE 892
-create_run urea -flow {Vivado Synthesis 2019} -strategy Flow_RuntimeOptimized
-# Optionally the run can be directly stated here
-# which will also launch it.
-# USER GUIDE 835
-#synth_design
-# Launch Synth 1 and wait for results
-launch_runs synthi -jobs 8
-wait_on_run synthi
-#+++++++++++++++++++++++++++++++++++++++++++++
-# Write the reports and DCP for the post synth analysis.
-#+++++++++++++++++++++++++++++++++++++++++++++
-write_checkpoint -force $outputDir/post_synth_dcp
-report_timing_summary -file $outputDir/post_synth_timing_summary.rpt
-report_utilization -file $outputDir/post_synth_usage.rpt
-report_power -file $outputDir/post_synth_power.rpt
+#------------------------------------------------------------------------------
+#   Grab Date, Ver, and Hash variables to insert into design ....
+#------------------------------------------------------------------------------
+set initial_generics [get_property generic [current_fileset]]
+set_property generic "$initial_generics DATE_CODE=32'h$datecode GIT_HASH=32'h$git_hash MAJOR_VER=32h'$MAJ_VER MINOR_VER=32'h$MIN_VER" [current_fileset]
+
+
+puts ""
+puts -nonewline "\033\[1;32m"; #GREEN
+puts "Creating bitstream ver $MAJ_VER . $MIN_VER on commit $git_hash.  Starting @ $datecode"
+puts "use these values to verify the bitstream version on the fpga"
+puts ""
+puts -nonewline "\033\[0m";# Reset
+
+
+
+
+puts $curr_dir 
+
+
+#------------------------------------------------------------------------------
+# Update  compile order
+#------------------------------------------------------------------------------
+
+#Sims
+update_compile_order -fileset sim_1
+#sources
+update_compile_order -fileset sources_1
+reset_run synth_1
+## STEP#1: run synthesis, report utilization and timing estimates, write checkpoint design
+## Create the runs with default of run time optimized design flows. If this fails, come back
+## and update this script with different flow options.
+##   USER GUIDE 892  ( If not using this method, uncomment it and use the other method listed before UG 835
+# create_run microrea -flow {Vivado Synthesis 2019} -strategy Flow_RuntimeOptimized
+## Optionally the run can be directly stated here
+## which will also launch it.
+## USER GUIDE 835
+#synth_design -top $project_name_top -part $project_part -verilog_define "DATE_CODE=32'h$datecode GIT_HSH=32'h$git_hash"
+## Launch Synth 1 and wait for results
+set_property strategy Flow_RuntimeOptimized [get_runs synth_1]
+launch_runs synth_1 -jobs 8
+wait_on_run synth_1
+##+++++++++++++++++++++++++++++++++++++++++++++
+## Write the reports and DCP for the post synth analysis.
+##+++++++++++++++++++++++++++++++++++++++++++++
+#write_checkpoint -force $outputDir/post_synth_dcp
+#report_timing_summary -file $outputDir/post_synth_timing_summary.rpt
+#report_utilization -file $outputDir/post_synth_usage.rpt
+#report_power -file $outputDir/post_synth_power.rpt
 puts "Synth Done... Starting Implementation"
-
-
-# STEP#2: run placement and logic optimzation, report utilization and timing estimates, write checkpoint design
-# Create the runs with default of run time optimized design flows. If this fails, come back
-# and update this script with different flow options.
-#   USER GUIDE 892
-create_run implementation_001 -parent_run synth_1 -flow {Vivado Implementation 2019} -strategy Performance_RefinePlacement
-# Optionally the run can be directly stated here
-# which will also launch it.
-# USER GUIDE 835
+#
+#
+## STEP#2: run placement and logic optimzation, report utilization and timing estimates, write checkpoint design
+## Create the runs with default of run time optimized design flows. If this fails, come back
+## and update this script with different flow options.
+##   USER GUIDE 892
+set_property strategy Flow_RuntimeOptimized [get_runs impl_1]
+## Optionally the run can be directly stated here
+## which will also launch it.
+## USER GUIDE 835
 #opt_design
 #place_design
 #phys_opt_design
 #route_design
-#
-# Launch Synth 1 and wait for results
-launch_runs implementation_001 -jobs 8
-wait_on_run implementation_001
-#+++++++++++++++++++++++++++++++++++++++++++++
-# Write the reports and DCP for the post synth analysis.
-#+++++++++++++++++++++++++++++++++++++++++++++
-write_checkpoint -force $outputDir/post_place
-report_timing_summary -file $outputDir/post_place_timing_summary.rpt
-report_timing_summary -file $outputDir/post_route_timing_summary.rpt
-report_timing -sort_by group -max_paths 100 -path_type summary -file $outputDir/post_route_timing.rpt
-report_clock_utilization -file $outputDir/clock_util.rpt
-report_utilization -file $outputDir/post_route_util.rpt
-#+++++++++++++++++++++++++++++++++++++++++++++
-# These reports are usually not needed.
-#+++++++++++++++++++++++++++++++++++++++++++++
+##
+## Launch Synth 1 and wait for results
+launch_runs impl_1 -to_step write_bitstream -jobs 8
+wait_on_run impl_1 
+##+++++++++++++++++++++++++++++++++++++++++++++
+## Write the reports and DCP for the post synth analysis.
+##+++++++++++++++++++++++++++++++++++++++++++++
+#write_checkpoint -force $outputDir/post_place
+#report_timing_summary -file $outputDir/post_place_timing_summary.rpt
+#report_timing_summary -file $outputDir/post_route_timing_summary.rpt
+#report_timing -sort_by group -max_paths 100 -path_type summary -file $outputDir/post_route_timing.rpt
+#report_clock_utilization -file $outputDir/clock_util.rpt
+#report_utilization -file $outputDir/post_route_util.rpt
+##+++++++++++++++++++++++++++++++++++++++++++++
+## These reports are usually not needed.
+##+++++++++++++++++++++++++++++++++++++++++++++
 #report_power -file $outputDir/post_route_power.rpt
 #report_drc -file $outputDir/post_imp_drc.rpt
 #write_verilog -force $outputDir/bft_impl_netlist.v
 #write_xdc -no_fixed_only -force $outputDir/bft_impl.xdc
 puts "Implementation Done, view reports."
+#
+#puts "If Ready for bitstream, run the following command"
+##+++++++++++++++++++++++++++++++++++++++++++++
+## If bitstream Go is set, this will skip to generating the bitstream directly
+## with no other input from the user.
+##+++++++++++++++++++++++++++++++++++++++++++++
 
-puts "If Ready for bitstream, run the following command"
-#+++++++++++++++++++++++++++++++++++++++++++++
-# If bitstream Go is set, this will skip to generating the bitstream directly
-# with no other input from the user.
-#+++++++++++++++++++++++++++++++++++++++++++++
-if { $doBitStream = 0}
-  {
-    puts "write_bitstream -force $outputDir/$project_name.bit"
-  }
-else
-  {
-    write_bitstream -force $outputDir/$project_name.bit
-  }
